@@ -9,6 +9,7 @@ struct GameResult {
 }
 
 // 오라클 어댑터 인터페이스
+// WormGame <-> IOracleAdapter (통역사) <-> IPriceFetcher (외국인)
 interface IOracleAdapter {
     function getTotalValue(address[] calldata tokens, uint256[] calldata amounts) external view returns (uint256);
 }
