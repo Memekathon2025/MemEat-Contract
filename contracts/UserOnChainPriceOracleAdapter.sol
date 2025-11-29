@@ -2,12 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./interfaces/IWormGame.sol";
-
-// 실제 가격을 가져오는 외부 오라클(예: Uniswap, Chainlink) 인터페이스
-// WormGame <-> IOracleAdapter (통역사) <-> IPriceFetcher (외국인)
-interface IPriceFetcher {
-    function getPrice(address token) external view returns (uint256);
-}
+import "./interfaces/IPriceFetcher.sol";
 
 contract UserOnChainPriceOracleAdapter is IOracleAdapter {
     // 진짜 오라클의 주소를 저장
