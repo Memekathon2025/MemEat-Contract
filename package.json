@@ -12,8 +12,11 @@
   "type": "module",
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.0.5",
+    "@nomicfoundation/hardhat-network-helpers": "^3.0.3",
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.1",
+    "@types/chai": "^5.2.3",
     "@types/node": "^22.19.1",
+    "chai": "^4.5.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.0.16",
     "typescript": "~5.8.0",
