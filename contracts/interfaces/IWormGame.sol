@@ -25,4 +25,5 @@ interface IWormGame {
     
     function enterGame(address token, uint256 amount) external;
     function exitGame(GameResult calldata result, bytes calldata signature) external;
+    function gameOver(GameResult calldata result, bytes calldata signature) external;
 }

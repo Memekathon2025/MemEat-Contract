@@ -1,0 +1,42 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-b84f35e11d6dd94cc20bdd4c36763010a73cdf8e",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/mocks/MockPriceFetcher.sol": "project/contracts/mocks/MockPriceFetcher.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/interfaces/IPriceFetcher.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.0;\r\n\r\n// 실제 가격을 가져오는 외부 오라클(예: Uniswap, Chainlink) 인터페이스\r\n// WormGame <-> IOracleAdapter (통역사) <-> IPriceFetcher (외국인)\r\ninterface IPriceFetcher {\r\n    function getPrice(address token) external view returns (uint256);\r\n}"
+      },
+      "project/contracts/mocks/MockPriceFetcher.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.0;\r\n\r\nimport \"../interfaces/IPriceFetcher.sol\"; // 우리가 만든 규격을 따름\r\n\r\ncontract MockPriceFetcher is IPriceFetcher {\r\n    // 토큰 주소 -> 가격 저장소\r\n    mapping(address => uint256) public prices;\r\n\r\n    // 가격 설정 (테스트할 때 우리가 호출함)\r\n    function setPrice(address token, uint256 price) external {\r\n        prices[token] = price;\r\n    }\r\n\r\n    // 가격 조회 (어댑터가 호출함)\r\n    function getPrice(address token) external view override returns (uint256) {\r\n        return prices[token];\r\n    }\r\n}"
+      }
+    }
+  }
+}

@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "hardhat test",
+    "deploy:insectarium": "hardhat ignition deploy ignition/modules/WormGame.ts --network insectarium --parameters parameters.json",
+    "interact": "hardhat run scripts/interact-contract.ts --network insectarium"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +19,7 @@
     "@types/chai": "^5.2.3",
     "@types/node": "^22.19.1",
     "chai": "^4.5.0",
+    "dotenv": "^17.2.3",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.0.16",
     "typescript": "~5.8.0",

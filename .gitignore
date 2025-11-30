@@ -18,3 +18,10 @@
 
 # Hardhat coverage reports
 /coverage
+
+# Hardhat keystore (contains sensitive private keys)
+.hardhat-keystore
+
+# Environment variables
+.env
+.env.local

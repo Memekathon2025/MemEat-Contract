@@ -1,0 +1,70 @@
+{
+  "_format": "hh3-artifact-1",
+  "contractName": "MockPriceFetcher",
+  "sourceName": "contracts/mocks/MockPriceFetcher.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "getPrice",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "prices",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "price",
+          "type": "uint256"
+        }
+      ],
+      "name": "setPrice",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080604052348015600e575f5ffd5b5061015f8061001c5f395ff3fe608060405234801561000f575f5ffd5b506004361061003e575f3560e01c8062e4768b1461004257806341976e091461006d578063cfed246b146100a7575b5f5ffd5b61006b6100503660046100e1565b6001600160a01b039091165f90815260208190526040902055565b005b61009561007b366004610109565b6001600160a01b03165f9081526020819052604090205490565b60405190815260200160405180910390f35b6100956100b5366004610109565b5f6020819052908152604090205481565b80356001600160a01b03811681146100dc575f5ffd5b919050565b5f5f604083850312156100f2575f5ffd5b6100fb836100c6565b946020939093013593505050565b5f60208284031215610119575f5ffd5b610122826100c6565b939250505056fea264697066735822122076e1fdd81547cbf5b1e67238736b86ca9108047fcb58f05a697b721b8e7f599864736f6c634300081c0033",
+  "deployedBytecode": "0x608060405234801561000f575f5ffd5b506004361061003e575f3560e01c8062e4768b1461004257806341976e091461006d578063cfed246b146100a7575b5f5ffd5b61006b6100503660046100e1565b6001600160a01b039091165f90815260208190526040902055565b005b61009561007b366004610109565b6001600160a01b03165f9081526020819052604090205490565b60405190815260200160405180910390f35b6100956100b5366004610109565b5f6020819052908152604090205481565b80356001600160a01b03811681146100dc575f5ffd5b919050565b5f5f604083850312156100f2575f5ffd5b6100fb836100c6565b946020939093013593505050565b5f60208284031215610119575f5ffd5b610122826100c6565b939250505056fea264697066735822122076e1fdd81547cbf5b1e67238736b86ca9108047fcb58f05a697b721b8e7f599864736f6c634300081c0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {},
+  "immutableReferences": {},
+  "inputSourceName": "project/contracts/mocks/MockPriceFetcher.sol",
+  "buildInfoId": "solc-0_8_28-b84f35e11d6dd94cc20bdd4c36763010a73cdf8e"
+}
