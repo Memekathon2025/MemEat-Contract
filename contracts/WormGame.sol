@@ -4,35 +4,14 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./interfaces/IWormGame.sol";
 
 /**
  * @title WormGame
  * @notice 상태 머신(State Machine) 기반 게임 컨트랙트
  * @dev Relayer 패턴을 사용하여 오프체인 게임 로직 검증 후 온체인 상태 업데이트
  */
-contract WormGame is Ownable, ReentrancyGuard {
-
-    // ============ 상태 정의 (State Machine) ============
-
-    enum PlayerStatus {
-        NotStarted, // 0: 게임 시작 전 (기본값)
-        Active,     // 1: 게임 중 (생존)
-        Exited,     // 2: 탈출 성공 (정산 대기)
-        Dead,       // 3: 사망 (정산 불가)
-        Claimed     // 4: 정산 완료
-    }
-
-    // ============ 구조체 정의 ============
-
-    struct PlayerData {
-        PlayerStatus status;           // 현재 상태
-        address entryToken;            // 입장료로 낸 토큰 주소
-        uint256 entryAmount;           // 입장료 수량
-        address[] rewardTokens;        // 획득한 토큰 종류
-        uint256[] rewardAmounts;       // 획득한 토큰 수량
-        uint256 enteredAt;             // 입장 시간
-        uint256 gameId;                // 게임 세션 ID (재진입 구분용)
-    }
+contract WormGame is Ownable, ReentrancyGuard, IWormGame {
 
     // ============ 상태 변수 ============
 
@@ -47,46 +26,6 @@ contract WormGame is Ownable, ReentrancyGuard {
 
     // 게임 세션 카운터
     uint256 public gameIdCounter;
-
-    // ============ 이벤트 ============
-
-    event GameEntered(
-        address indexed player,
-        address token,
-        uint256 amount,
-        uint256 gameId,
-        uint256 timestamp
-    );
-
-    event GameStateUpdated(
-        address indexed player,
-        PlayerStatus newStatus,
-        uint256 gameId,
-        address[] rewardTokens,
-        uint256[] rewardAmounts
-    );
-
-    event RewardClaimed(
-        address indexed player,
-        uint256 gameId,
-        address[] tokens,
-        uint256[] amounts
-    );
-
-    event RelayerUpdated(
-        address indexed oldRelayer,
-        address indexed newRelayer
-    );
-
-    // ============ 에러 정의 ============
-
-    error OnlyRelayer();
-    error InvalidStatus();
-    error InvalidAmount();
-    error AlreadyInGame();
-    error NotExited();
-    error NoRewardToClaim();
-    error LengthMismatch();
 
     // ============ Modifier ============
 
@@ -109,7 +48,7 @@ contract WormGame is Ownable, ReentrancyGuard {
      * @param token 입장료로 낼 토큰 주소
      * @param amount 입장료 수량
      */
-    function enterGame(address token, uint256 amount) external nonReentrant {
+    function enterGame(address token, uint256 amount) external override nonReentrant {
         PlayerData storage player = players[msg.sender];
 
         // 검증: 금액이 0보다 커야 함
@@ -151,7 +90,7 @@ contract WormGame is Ownable, ReentrancyGuard {
      * @notice 보상 정산 (탈출 성공한 유저만 가능)
      * @dev Checks-Effects-Interactions 패턴 적용
      */
-    function claimReward() external nonReentrant {
+    function claimReward() external override nonReentrant {
         PlayerData storage player = players[msg.sender];
 
         // 검증: Exited 상태여야 함
@@ -199,7 +138,7 @@ contract WormGame is Ownable, ReentrancyGuard {
         PlayerStatus newStatus,
         address[] calldata rewardTokens,
         uint256[] calldata rewardAmounts
-    ) external onlyRelayer {
+    ) external override onlyRelayer {
         PlayerData storage playerData = players[player];
 
         // 검증: Active 상태여야만 업데이트 가능
@@ -244,7 +183,7 @@ contract WormGame is Ownable, ReentrancyGuard {
     /**
      * @notice Relayer 주소 변경
      */
-    function setRelayer(address newRelayer) external onlyOwner {
+    function setRelayer(address newRelayer) external override onlyOwner {
         address oldRelayer = relayer;
         relayer = newRelayer;
         emit RelayerUpdated(oldRelayer, newRelayer);
@@ -253,7 +192,7 @@ contract WormGame is Ownable, ReentrancyGuard {
     /**
      * @notice 최소 탈출 가치 변경
      */
-    function setMinExitValue(uint256 newMinExitValue) external onlyOwner {
+    function setMinExitValue(uint256 newMinExitValue) external override onlyOwner {
         minExitValue = newMinExitValue;
     }
 
@@ -262,7 +201,7 @@ contract WormGame is Ownable, ReentrancyGuard {
     /**
      * @notice 플레이어 상태 조회
      */
-    function getPlayerStatus(address player) external view returns (PlayerStatus) {
+    function getPlayerStatus(address player) external view override returns (PlayerStatus) {
         return players[player].status;
     }
 
@@ -272,6 +211,7 @@ contract WormGame is Ownable, ReentrancyGuard {
     function getPlayerReward(address player)
         external
         view
+        override
         returns (address[] memory, uint256[] memory)
     {
         PlayerData storage playerData = players[player];
@@ -281,7 +221,7 @@ contract WormGame is Ownable, ReentrancyGuard {
     /**
      * @notice 컨트랙트 토큰 잔액 조회
      */
-    function getContractBalance(address token) external view returns (uint256) {
+    function getContractBalance(address token) external view override returns (uint256) {
         return IERC20(token).balanceOf(address(this));
     }
 }
