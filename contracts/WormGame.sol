@@ -18,8 +18,10 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
     // Relayer 주소 (서버)
     address public relayer;
 
-    // 최소 탈출 가치 (USD 기준, 18 decimals)
-    uint256 public minExitValue;
+    // 기준 밈 코인 (예: DOGE)
+    address public targetMemeToken;
+    // 기준 밈 코인 수량 (예: 1000 * 10^18)
+    uint256 public targetMemeAmount;
 
     // 플레이어 데이터
     mapping(address => PlayerData) public players;
@@ -36,9 +38,10 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
 
     // ============ Constructor ============
 
-    constructor(address _relayer, uint256 _minExitValue) Ownable(msg.sender) {
+    constructor(address _relayer, address _targetMemeToken, uint256 _targetMemeAmount) Ownable(msg.sender) {
         relayer = _relayer;
-        minExitValue = _minExitValue;
+        targetMemeToken = _targetMemeToken;
+        targetMemeAmount = _targetMemeAmount;
     }
 
     // ============ 유저 함수 ============
@@ -190,10 +193,11 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
     }
 
     /**
-     * @notice 최소 탈출 가치 변경
+     * @notice 탈출 기준 변경 (밈 코인 및 수량)
      */
-    function setMinExitValue(uint256 newMinExitValue) external override onlyOwner {
-        minExitValue = newMinExitValue;
+    function setExitCriteria(address token, uint256 amount) external override onlyOwner {
+        targetMemeToken = token;
+        targetMemeAmount = amount;
     }
 
     // ============ View 함수 ============
