@@ -15,11 +15,11 @@ contract WormGame is Ownable, ReentrancyGuard {
     // ============ 상태 정의 (State Machine) ============
 
     enum PlayerStatus {
-        None,      // 0: 게임 참여 이력 없음 또는 초기화됨
-        Active,    // 1: 게임 중 (생존)
-        Exited,    // 2: 탈출 성공 (정산 대기)
-        Dead,      // 3: 사망 (정산 불가)
-        Claimed    // 4: 정산 완료
+        NotStarted, // 0: 게임 시작 전 (기본값)
+        Active,     // 1: 게임 중 (생존)
+        Exited,     // 2: 탈출 성공 (정산 대기)
+        Dead,       // 3: 사망 (정산 불가)
+        Claimed     // 4: 정산 완료
     }
 
     // ============ 구조체 정의 ============

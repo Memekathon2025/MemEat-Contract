@@ -1,5 +1,3 @@
 {
-  "WormGameModule#MockPriceFetcher": "0x9368cA91aA343561beA8d88BC7336ca2E95c6e69",
-  "WormGameModule#UserOnChainPriceOracleAdapter": "0x50437b0960d719313Eeea64f370219103D7a6070",
-  "WormGameModule#WormGame": "0x81CD91E8255bb8926746Aa630185F80F2f8A3a84"
+  "WormGameModule#WormGame": "0xE7EAAE06fC09D0d84B437B9f78Dc12b57B5D4679"
 }

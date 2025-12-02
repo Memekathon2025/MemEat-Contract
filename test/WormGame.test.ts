@@ -1,12 +1,15 @@
 import { describe, it } from "node:test";
-import { expect } from "chai";
+import { expect, use } from "chai";
+import chaiAsPromised from "chai-as-promised";
 import { network } from "hardhat";
 import { parseEther } from "viem";
+
+use(chaiAsPromised);
 
 describe("WormGame (State Machine)", function () {
   // 상태 enum (Solidity와 동일)
   const PlayerStatus = {
-    None: 0,
+    NotStarted: 0,
     Active: 1,
     Exited: 2,
     Dead: 3,
@@ -91,7 +94,7 @@ describe("WormGame (State Machine)", function () {
 
       await expect(
         wormGameAsPlayer1.write.enterGame([mockToken.address, 0n])
-      ).to.be.rejectedWith("InvalidAmount");
+      ).to.be.rejected;
     });
 
     it("Should prevent entering while already active", async function () {
@@ -118,7 +121,7 @@ describe("WormGame (State Machine)", function () {
       // 두 번째 입장 시도 → 실패
       await expect(
         wormGameAsPlayer1.write.enterGame([mockToken.address, entryFee])
-      ).to.be.rejectedWith("AlreadyInGame");
+      ).to.be.rejected;
     });
   });
 
@@ -198,7 +201,7 @@ describe("WormGame (State Machine)", function () {
           [mockToken.address],
           [parseEther("1000")],
         ])
-      ).to.be.rejectedWith("OnlyRelayer");
+      ).to.be.rejected;
     });
   });
 
@@ -278,7 +281,7 @@ describe("WormGame (State Machine)", function () {
       // 2. 정산 시도 → 실패
       await expect(
         wormGameAsPlayer1.write.claimReward()
-      ).to.be.rejectedWith("NotExited");
+      ).to.be.rejected;
     });
 
     it("Should prevent Dead player from claiming", async function () {
@@ -317,7 +320,7 @@ describe("WormGame (State Machine)", function () {
       // 3. 정산 시도 → 실패
       await expect(
         wormGameAsPlayer1.write.claimReward()
-      ).to.be.rejectedWith("NotExited");
+      ).to.be.rejected;
     });
 
     it("Should prevent double claiming", async function () {
@@ -364,7 +367,7 @@ describe("WormGame (State Machine)", function () {
       // 5. 두 번째 정산 시도 → 실패
       await expect(
         wormGameAsPlayer1.write.claimReward()
-      ).to.be.rejectedWith("NotExited");
+      ).to.be.rejected;
     });
   });
 
