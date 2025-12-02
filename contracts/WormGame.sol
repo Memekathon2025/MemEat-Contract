@@ -4,111 +4,284 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import "./interfaces/IWormGame.sol"; 
 
-// ReentrancyGuard: 재진입 공격 방지, Ownable: 소유권 관리
-contract WormGame is ReentrancyGuard, Ownable, IWormGame {
-    using ECDSA for bytes32;
- 
-    IOracleAdapter public oracleAdapter; // 가격 정보를 가져올 오라클
-    address public serverSigner; // 서버의 서명을 검증할 공개키
-    
-    // 탈출을 위해 필요한 최소 가치 (USD 등 기준 통화 단위)
+/**
+ * @title WormGame
+ * @notice 상태 머신(State Machine) 기반 게임 컨트랙트
+ * @dev Relayer 패턴을 사용하여 오프체인 게임 로직 검증 후 온체인 상태 업데이트
+ */
+contract WormGame is Ownable, ReentrancyGuard {
+
+    // ============ 상태 정의 (State Machine) ============
+
+    enum PlayerStatus {
+        None,      // 0: 게임 참여 이력 없음 또는 초기화됨
+        Active,    // 1: 게임 중 (생존)
+        Exited,    // 2: 탈출 성공 (정산 대기)
+        Dead,      // 3: 사망 (정산 불가)
+        Claimed    // 4: 정산 완료
+    }
+
+    // ============ 구조체 정의 ============
+
+    struct PlayerData {
+        PlayerStatus status;           // 현재 상태
+        address entryToken;            // 입장료로 낸 토큰 주소
+        uint256 entryAmount;           // 입장료 수량
+        address[] rewardTokens;        // 획득한 토큰 종류
+        uint256[] rewardAmounts;       // 획득한 토큰 수량
+        uint256 enteredAt;             // 입장 시간
+        uint256 gameId;                // 게임 세션 ID (재진입 구분용)
+    }
+
+    // ============ 상태 변수 ============
+
+    // Relayer 주소 (서버)
+    address public relayer;
+
+    // 최소 탈출 가치 (USD 기준, 18 decimals)
     uint256 public minExitValue;
 
-    // 이벤트 정의
-    event GameEntered(address indexed user, address token, uint256 amount);
-    event GameExited(address indexed user, address[] tokens, uint256[] amounts, uint256 totalValue);
-    event GameOver(address indexed user, address[] tokens, uint256[] amounts, uint256 totalValue);
+    // 플레이어 데이터
+    mapping(address => PlayerData) public players;
 
-    // 재사용 방지 (Replay Attack 방지)를 위한 Nonce 관리
-    mapping(uint256 => bool) public usedNonces;
+    // 게임 세션 카운터
+    uint256 public gameIdCounter;
 
-    constructor(address _oracleAdapter, address _serverSigner) Ownable(msg.sender) {
-        oracleAdapter = IOracleAdapter(_oracleAdapter);
-        serverSigner = _serverSigner;
+    // ============ 이벤트 ============
+
+    event GameEntered(
+        address indexed player,
+        address token,
+        uint256 amount,
+        uint256 gameId,
+        uint256 timestamp
+    );
+
+    event GameStateUpdated(
+        address indexed player,
+        PlayerStatus newStatus,
+        uint256 gameId,
+        address[] rewardTokens,
+        uint256[] rewardAmounts
+    );
+
+    event RewardClaimed(
+        address indexed player,
+        uint256 gameId,
+        address[] tokens,
+        uint256[] amounts
+    );
+
+    event RelayerUpdated(
+        address indexed oldRelayer,
+        address indexed newRelayer
+    );
+
+    // ============ 에러 정의 ============
+
+    error OnlyRelayer();
+    error InvalidStatus();
+    error InvalidAmount();
+    error AlreadyInGame();
+    error NotExited();
+    error NoRewardToClaim();
+    error LengthMismatch();
+
+    // ============ Modifier ============
+
+    modifier onlyRelayer() {
+        if (msg.sender != relayer) revert OnlyRelayer();
+        _;
     }
 
-    // 설정 변경 함수들 (관리자 전용)
-    // 오라클 어댑터 변경
-    function setOracleAdapter(address _oracleAdapter) external onlyOwner {
-        oracleAdapter = IOracleAdapter(_oracleAdapter);
+    // ============ Constructor ============
+
+    constructor(address _relayer, uint256 _minExitValue) Ownable(msg.sender) {
+        relayer = _relayer;
+        minExitValue = _minExitValue;
     }
 
-    // 서버 서명자 변경
-    function setServerSigner(address _serverSigner) external onlyOwner {
-        serverSigner = _serverSigner;
-    }
+    // ============ 유저 함수 ============
 
-    // 최소 탈출 가치 변경
-    function setMinExitValue(uint256 _value) external onlyOwner {
-        minExitValue = _value;
-    }
-
-    // 1. 입장 (Entry): 유저가 토큰을 내고 게임에 참가
+    /**
+     * @notice 게임 입장 (입장료 지불)
+     * @param token 입장료로 낼 토큰 주소
+     * @param amount 입장료 수량
+     */
     function enterGame(address token, uint256 amount) external nonReentrant {
+        PlayerData storage player = players[msg.sender];
+
+        // 검증: 금액이 0보다 커야 함
         if (amount == 0) revert InvalidAmount();
-        
-        // 유저의 토큰을 컨트랙트(Vault)로 가져옴
+
+        // 검증: 이미 게임 중이 아니어야 함
+        if (player.status == PlayerStatus.Active) {
+            revert AlreadyInGame();
+        }
+
+        // 이전 게임 세션이 있었다면 초기화
+        if (player.status == PlayerStatus.Claimed ||
+            player.status == PlayerStatus.Dead) {
+            delete players[msg.sender];
+            player = players[msg.sender];
+        }
+
+        // 입장료 토큰 전송
         IERC20(token).transferFrom(msg.sender, address(this), amount);
 
-        emit GameEntered(msg.sender, token, amount);
+        // 게임 ID 증가
+        gameIdCounter++;
+
+        // 플레이어 데이터 설정
+        player.status = PlayerStatus.Active;
+        player.entryToken = token;
+        player.entryAmount = amount;
+        player.enteredAt = block.timestamp;
+        player.gameId = gameIdCounter;
+
+        // 보상 배열 초기화
+        delete player.rewardTokens;
+        delete player.rewardAmounts;
+
+        emit GameEntered(msg.sender, token, amount, gameIdCounter, block.timestamp);
     }
 
-    // 2. 탈출 (Exit): 게임 결과에 따라 토큰을 정산받음
-    // nonce: 영수증 번호, signature: 서버 도장
-    function exitGame(
-        GameResult calldata result,
-        bytes calldata signature
-    ) external nonReentrant {
-        if (result.tokens.length != result.amounts.length) revert LengthMismatch();
-        if (usedNonces[result.nonce]) revert NonceAlreadyUsed();
+    /**
+     * @notice 보상 정산 (탈출 성공한 유저만 가능)
+     * @dev Checks-Effects-Interactions 패턴 적용
+     */
+    function claimReward() external nonReentrant {
+        PlayerData storage player = players[msg.sender];
 
-        // A. 서버 서명 검증 (유효한 게임 플레이였는지 확인)
-        bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, result.tokens, result.amounts, result.nonce));
-        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
-       if (ethSignedMessageHash.recover(signature) != serverSigner) revert InvalidSignature();
+        // 검증: Exited 상태여야 함
+        if (player.status != PlayerStatus.Exited) {
+            revert NotExited();
+        }
 
-        usedNonces[result.nonce] = true;
+        // 검증: 보상이 있어야 함
+        if (player.rewardTokens.length == 0) {
+            revert NoRewardToClaim();
+        }
 
-        // B. 오라클을 통해 가치 검증 (Total Value 확인)
-        uint256 totalValue = oracleAdapter.getTotalValue(result.tokens, result.amounts);
-        if (totalValue < minExitValue) revert InsufficientExitValue();
+        // 상태 변경 (재진입 공격 방지)
+        player.status = PlayerStatus.Claimed;
 
-        // C. 토큰 정산 (유저에게 전송)
-        for (uint256 i = 0; i < result.tokens.length; i++) {
-            if (result.amounts[i] > 0) {
-                IERC20(result.tokens[i]).transfer(msg.sender, result.amounts[i]);
+        // 보상 전송
+        for (uint256 i = 0; i < player.rewardTokens.length; i++) {
+            if (player.rewardAmounts[i] > 0) {
+                IERC20(player.rewardTokens[i]).transfer(
+                    msg.sender,
+                    player.rewardAmounts[i]
+                );
             }
         }
 
-        emit GameExited(msg.sender, result.tokens, result.amounts, totalValue);
+        emit RewardClaimed(
+            msg.sender,
+            player.gameId,
+            player.rewardTokens,
+            player.rewardAmounts
+        );
     }
 
-    // 3. 사망 (Game Over): 플레이어가 사망하여 입장료를 잃고 수집한 토큰은 맵에 다시 뿌려짐
-    // nonce: 영수증 번호, signature: 서버 도장
-    function gameOver(
-        GameResult calldata result,
-        bytes calldata signature
-    ) external nonReentrant {
-        if (result.tokens.length != result.amounts.length) revert LengthMismatch();
-        if (usedNonces[result.nonce]) revert NonceAlreadyUsed();
+    // ============ Relayer 함수 ============
 
-        // A. 서버 서명 검증 (유효한 게임 플레이였는지 확인)
-        bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, result.tokens, result.amounts, result.nonce));
-        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
-        if (ethSignedMessageHash.recover(signature) != serverSigner) revert InvalidSignature();
+    /**
+     * @notice 게임 상태 업데이트 (Relayer만 호출 가능)
+     * @param player 플레이어 주소
+     * @param newStatus 새로운 상태 (Exited 또는 Dead)
+     * @param rewardTokens 획득한 토큰 주소 배열
+     * @param rewardAmounts 획득한 토큰 수량 배열
+     */
+    function updateGameState(
+        address player,
+        PlayerStatus newStatus,
+        address[] calldata rewardTokens,
+        uint256[] calldata rewardAmounts
+    ) external onlyRelayer {
+        PlayerData storage playerData = players[player];
 
-        usedNonces[result.nonce] = true;
+        // 검증: Active 상태여야만 업데이트 가능
+        if (playerData.status != PlayerStatus.Active) {
+            revert InvalidStatus();
+        }
 
-        // B. 오라클을 통해 가치 계산 (Total Value 확인, 정산은 하지 않음)
-        uint256 totalValue = oracleAdapter.getTotalValue(result.tokens, result.amounts);
+        // 검증: Exited 또는 Dead만 가능
+        if (newStatus != PlayerStatus.Exited && newStatus != PlayerStatus.Dead) {
+            revert InvalidStatus();
+        }
 
-        // C. 수집한 토큰은 컨트랙트에 남김 (정산하지 않음, 맵에 다시 뿌려짐)
-        // 입장료는 이미 컨트랙트에 있으므로 별도 처리 불필요
+        // 검증: 배열 길이 일치
+        if (rewardTokens.length != rewardAmounts.length) {
+            revert LengthMismatch();
+        }
 
-        emit GameOver(msg.sender, result.tokens, result.amounts, totalValue);
+        // 상태 변경
+        playerData.status = newStatus;
+
+        // 보상 정보 저장 (Exited일 경우만 의미 있음)
+        if (newStatus == PlayerStatus.Exited) {
+            playerData.rewardTokens = rewardTokens;
+            playerData.rewardAmounts = rewardAmounts;
+        } else {
+            // Dead 상태면 보상 0
+            delete playerData.rewardTokens;
+            delete playerData.rewardAmounts;
+        }
+
+        emit GameStateUpdated(
+            player,
+            newStatus,
+            playerData.gameId,
+            playerData.rewardTokens,
+            playerData.rewardAmounts
+        );
+    }
+
+    // ============ 관리자 함수 ============
+
+    /**
+     * @notice Relayer 주소 변경
+     */
+    function setRelayer(address newRelayer) external onlyOwner {
+        address oldRelayer = relayer;
+        relayer = newRelayer;
+        emit RelayerUpdated(oldRelayer, newRelayer);
+    }
+
+    /**
+     * @notice 최소 탈출 가치 변경
+     */
+    function setMinExitValue(uint256 newMinExitValue) external onlyOwner {
+        minExitValue = newMinExitValue;
+    }
+
+    // ============ View 함수 ============
+
+    /**
+     * @notice 플레이어 상태 조회
+     */
+    function getPlayerStatus(address player) external view returns (PlayerStatus) {
+        return players[player].status;
+    }
+
+    /**
+     * @notice 플레이어 보상 정보 조회
+     */
+    function getPlayerReward(address player)
+        external
+        view
+        returns (address[] memory, uint256[] memory)
+    {
+        PlayerData storage playerData = players[player];
+        return (playerData.rewardTokens, playerData.rewardAmounts);
+    }
+
+    /**
+     * @notice 컨트랙트 토큰 잔액 조회
+     */
+    function getContractBalance(address token) external view returns (uint256) {
+        return IERC20(token).balanceOf(address(this));
     }
 }
