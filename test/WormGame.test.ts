@@ -30,7 +30,6 @@ describe("WormGame (State Machine)", function () {
     // WormGame 배포
     const wormGame = await viem.deployContract("WormGame", [
       relayer.account.address,
-      mockToken.address, // targetMemeToken (테스트용으로 mockToken 사용)
       parseEther("1000"), // targetMemeAmount = 1000 Tokens
     ]);
 
@@ -479,15 +478,13 @@ describe("WormGame (State Machine)", function () {
     });
 
     it("Should allow owner to change exit criteria", async function () {
-      const { wormGame, mockToken } = await deployFixture();
+      const { wormGame } = await deployFixture();
 
       const newTargetAmount = parseEther("2000");
-      await wormGame.write.setExitCriteria([mockToken.address, newTargetAmount]);
+      await wormGame.write.setExitCriteria([newTargetAmount]);
 
-      const targetToken = await wormGame.read.targetMemeToken();
       const targetAmount = await wormGame.read.targetMemeAmount();
       
-      expect(targetToken.toLowerCase()).to.equal(mockToken.address.toLowerCase());
       expect(targetAmount).to.equal(newTargetAmount);
     });
   });

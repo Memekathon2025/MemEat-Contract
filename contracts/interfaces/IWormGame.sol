@@ -84,7 +84,7 @@ interface IWormGame {
     
     function setRelayer(address newRelayer) external;
     
-    function setExitCriteria(address token, uint256 amount) external;
+    function setExitCriteria(uint256 amount) external;
     
     function getPlayerStatus(address player) external view returns (PlayerStatus);
     
