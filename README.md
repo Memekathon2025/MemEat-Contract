@@ -439,9 +439,19 @@ function claimReward() external nonReentrant {
 
 ## 📚 추가 문서
 
-- **[WORMGAME_SUMMARY.md](WORMGAME_SUMMARY.md)**: 전체 프로젝트 요약 및 배포 가이드
+- **[INTEGRATION.md](INTEGRATION.md)**: 백엔드/프론트엔드 통합 가이드 (배포된 컨트랙트 사용법)
 - **[STATE_MACHINE.md](STATE_MACHINE.md)**: 상태 머신 상세 설명 및 Mermaid 다이어그램
 - **[SECURITY_AUDIT.md](SECURITY_AUDIT.md)**: 보안 검증 및 공격 벡터 분석
+
+---
+
+## 🌐 배포 정보 (Insectarium Testnet)
+
+- **컨트랙트 주소**: `0x12B08668F86A35E9ff9B726FBC46820a7d89335A`
+- **Network**: Insectarium Testnet (Chain ID: 43522)
+- **RPC URL**: https://rpc.insectarium.memecore.net
+- **배포 일자**: 2025년
+- **테스트 스크립트**: `npx hardhat run scripts/verify-deployment.ts --network insectarium`
 
 ---
 
