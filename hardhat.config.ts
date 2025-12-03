@@ -1,12 +1,13 @@
-import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
+import "@nomicfoundation/hardhat-toolbox-viem";
 import { configVariable, defineConfig } from "hardhat/config";
 import dotenv from "dotenv";
 
 // .env 파일 로드
+// .env 파일 로드 (순서: .env.local -> .env)
+dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 export default defineConfig({
-  plugins: [hardhatToolboxViemPlugin],
   solidity: {
     profiles: {
       default: {
