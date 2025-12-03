@@ -10,6 +10,19 @@ import "./interfaces/IWormGame.sol";
  * @title WormGame
  * @notice 상태 머신(State Machine) 기반 게임 컨트랙트
  * @dev Relayer 패턴을 사용하여 오프체인 게임 로직 검증 후 온체인 상태 업데이트
+ *
+ * ## 탈출 조건 (Exit Condition)
+ * 탈출 조건은 온체인이 아닌 **백엔드(Relayer)에서 검증**됩니다:
+ * - 플레이어가 게임에서 획득한 모든 MRC-20 토큰의 **총 M 환산 가치**
+ * - 이 값이 플레이어가 입장 시 예치한 **entryAmount** 이상이면 탈출 가능
+ * - 백엔드는 각 토큰의 실시간 가격을 조회하여 총 가치를 계산
+ * - 탈출 조건 만족 시 Relayer가 updateGameState()를 호출하여 Exited 상태로 변경
+ *
+ * 예시:
+ * - 입장료: 1 M
+ * - 획득 토큰: sdf 100개 (0.005 M/개) + z 20개 (0.05 M/개)
+ * - 총 가치: (100 * 0.005) + (20 * 0.05) = 0.5 + 1.0 = 1.5 M
+ * - 1.5 M >= 1 M → 탈출 가능 ✅
  */
 contract WormGame is Ownable, ReentrancyGuard, IWormGame {
 
@@ -17,9 +30,6 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
 
     // Relayer 주소 (서버)
     address public relayer;
-
-    // 기준 밈 코인 가격 (예: 0.001 * 10^18 = 0.001 M)
-    uint256 public targetMemePrice;
 
     // 플레이어 데이터
     mapping(address => PlayerData) public players;
@@ -36,9 +46,8 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
 
     // ============ Constructor ============
 
-    constructor(address _relayer, uint256 _targetMemePrice) Ownable(msg.sender) {
+    constructor(address _relayer) Ownable(msg.sender) {
         relayer = _relayer;
-        targetMemePrice = _targetMemePrice;
     }
 
     // ============ 유저 함수 ============
@@ -189,12 +198,6 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
         emit RelayerUpdated(oldRelayer, newRelayer);
     }
 
-    /**
-     * @notice 탈출 기준 변경 (밈 코인 가격)
-     */
-    function setExitCriteria(uint256 price) external override onlyOwner {
-        targetMemePrice = price;
-    }
 
     // ============ View 함수 ============
 

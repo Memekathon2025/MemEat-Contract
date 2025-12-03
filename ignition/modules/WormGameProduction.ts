@@ -1,5 +1,4 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { parseEther } from "viem";
 
 /**
  * 프로덕션용 배포 모듈 (MemeX Bonding Curve 사용)
@@ -18,21 +17,13 @@ const WormGameProductionModule = buildModule("WormGameProductionModule", (m) => 
     "0x6a594a2C401Cf32D29823Ec10D651819DDfd688D" // MemeX Bonding Curve 주소
   );
 
-  const targetMemePrice = m.getParameter<bigint>(
-    "targetMemePrice",
-    parseEther("0.001") // 기본값: 0.001 M
-  );
-
   // 1. MemeXPriceFetcher 배포
   const memeXPriceFetcher = m.contract("MemeXPriceFetcher", [
     bondingCurveAddress,
   ]);
 
   // 2. WormGame 배포
-  const wormGame = m.contract("WormGame", [
-    relayerAddress,
-    targetMemePrice,
-  ]);
+  const wormGame = m.contract("WormGame", [relayerAddress]);
 
   return {
     memeXPriceFetcher,
