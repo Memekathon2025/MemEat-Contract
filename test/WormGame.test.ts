@@ -122,6 +122,40 @@ describe("WormGame (State Machine)", function () {
         wormGameAsPlayer1.write.enterGame([mockToken.address, entryFee])
       ).to.be.rejected;
     });
+
+    it("Should allow player to enter game with Native M coin", async function () {
+      const { wormGame, player1 } = await deployFixture();
+      const entryFee = parseEther("10");
+
+      await wormGame.write.enterGame(
+        [
+          "0x0000000000000000000000000000000000000000", // Native M은 address(0)
+          entryFee
+        ],
+        { 
+          account: player1.account,
+          value: entryFee // Native M 전송
+        }
+      );
+
+      const playerStatus = await wormGame.read.getPlayerStatus([player1.account.address]);
+      expect(playerStatus).to.equal(1); // Active
+    });
+
+    it("Should fail if Native M amount mismatch", async function () {
+      const { wormGame, player1 } = await deployFixture();
+      const entryFee = parseEther("10");
+
+      await expect(
+        wormGame.write.enterGame(
+          ["0x0000000000000000000000000000000000000000", entryFee],
+          { 
+            account: player1.account,
+            value: parseEther("5") // 금액 불일치
+          }
+        )
+      ).to.be.rejectedWith("InvalidAmount");
+    });
   });
 
   describe("🎯 Exit Flow (탈출)", function () {

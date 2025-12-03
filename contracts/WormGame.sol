@@ -57,11 +57,13 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
      * @param token 입장료로 낼 토큰 주소
      * @param amount 입장료 수량
      */
-    function enterGame(address token, uint256 amount) external override nonReentrant {
+    /**
+     * @notice 게임 입장 (입장료 지불)
+     * @param token 입장료로 낼 토큰 주소 (Native M인 경우 address(0))
+     * @param amount 입장료 수량 (Native M인 경우 msg.value와 일치해야 함)
+     */
+    function enterGame(address token, uint256 amount) external payable override nonReentrant {
         PlayerData storage player = players[msg.sender];
-
-        // 검증: 금액이 0보다 커야 함
-        if (amount == 0) revert InvalidAmount();
 
         // 검증: 이미 게임 중이 아니어야 함
         if (player.status == PlayerStatus.Active) {
@@ -75,8 +77,19 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
             player = players[msg.sender];
         }
 
-        // 입장료 토큰 전송
-        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        // 입장료 처리 로직
+        if (msg.value > 0) {
+            // Case 1: Native M 코인으로 입장
+            if (token != address(0)) revert InvalidEntry(); // Native 입장 시 token은 0이어야 함
+            if (msg.value != amount) revert InvalidAmount(); // 금액 불일치
+        } else {
+            // Case 2: MRC-20 토큰으로 입장
+            if (token == address(0)) revert InvalidEntry(); // 토큰 주소 필수
+            if (amount == 0) revert InvalidAmount(); // 0원 입장 불가
+            
+            // 토큰 전송 (User -> Contract)
+            IERC20(token).transferFrom(msg.sender, address(this), amount);
+        }
 
         // 게임 ID 증가
         gameIdCounter++;

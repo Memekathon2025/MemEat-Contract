@@ -68,10 +68,11 @@ interface IWormGame {
     error NotExited();
     error NoRewardToClaim();
     error LengthMismatch();
+    error InvalidEntry();
 
     // ============ 함수 정의 ============
 
-    function enterGame(address token, uint256 amount) external;
+    function enterGame(address token, uint256 amount) external payable;
     
     function claimReward() external;
     
