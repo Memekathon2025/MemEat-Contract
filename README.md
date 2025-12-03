@@ -5,6 +5,7 @@
 WormGame은 **오프체인 게임 로직**과 **온체인 자산 정산**을 결합한 하이브리드 게임 컨트랙트입니다.
 
 ### 핵심 특징
+
 - ✅ **상태 머신(State Machine)** 기반 설계 (5개 상태)
 - ✅ **Relayer 패턴**으로 서버 권한 관리
 - ✅ **재진입 공격 방지** (CEI 패턴 + ReentrancyGuard)
@@ -35,7 +36,7 @@ worm-contract/
 │   ├── WormGame.sol                          # 메인 게임 컨트랙트
 │   ├── UserOnChainPriceOracleAdapter.sol     # 가격 오라클 어댑터
 │   ├── adapters/                             # 오라클 어댑터들
-│   │   ├── ChainlinkPriceFetcher.sol        # Chainlink 오라클 (프로덕션)
+
 │   │   └── (기타 오라클 구현체)
 │   ├── interfaces/
 │   │   └── IPriceFetcher.sol                # 오라클 인터페이스
@@ -92,8 +93,8 @@ RELAYER_ADDRESS=0x...
 ```json
 {
   "WormGameModule": {
-    "relayer": "0x...",              // Relayer 주소
-    "minExitValue": "50000000000000000000"  // 최소 탈출 가치 (50 USD)
+    "relayer": "0x...", // Relayer 주소
+    "minExitValue": "50000000000000000000" // 최소 탈출 가치 (50 USD)
   }
 }
 ```
@@ -111,6 +112,7 @@ npm test
 ```
 
 **예상 결과:**
+
 ```
 WormGame (State Machine)
   🎮 Entry Flow (입장)
@@ -363,6 +365,7 @@ function claimReward() external nonReentrant {
 ```
 
 **허용되는 전이:**
+
 - None → Active (enterGame)
 - Active → Exited (updateGameState, Relayer만)
 - Active → Dead (updateGameState, Relayer만)
@@ -371,6 +374,7 @@ function claimReward() external nonReentrant {
 - Claimed → Active (enterGame, 재진입)
 
 **차단되는 전이:**
+
 - Active → Active (AlreadyInGame)
 - Active → Claimed (updateGameState 없이 불가능)
 - Dead → Exited (사망 후 탈출 불가)
@@ -383,12 +387,14 @@ function claimReward() external nonReentrant {
 ### 유저 호출 함수
 
 #### `enterGame(token, amount)`
+
 - **목적**: 게임 입장 및 입장료 지불
 - **권한**: 누구나
 - **조건**: amount > 0, Active 상태 아님
 - **결과**: Active 상태로 변경
 
 #### `claimReward()`
+
 - **목적**: 탈출 성공 시 보상 정산
 - **권한**: Exited 상태인 유저만
 - **조건**: status == Exited, 보상 배열 존재
@@ -397,6 +403,7 @@ function claimReward() external nonReentrant {
 ### Relayer 호출 함수
 
 #### `updateGameState(player, newStatus, rewardTokens, rewardAmounts)`
+
 - **목적**: 게임 결과 기록
 - **권한**: Relayer만
 - **조건**: player.status == Active, newStatus == Exited/Dead
@@ -405,22 +412,27 @@ function claimReward() external nonReentrant {
 ### 관리자 함수
 
 #### `setRelayer(newRelayer)`
+
 - **목적**: Relayer 주소 변경
 - **권한**: Owner만
 
 #### `setMinExitValue(newValue)`
+
 - **목적**: 최소 탈출 가치 변경
 - **권한**: Owner만
 
 ### View 함수
 
 #### `getPlayerStatus(player) → PlayerStatus`
+
 - 플레이어 현재 상태 조회
 
 #### `getPlayerReward(player) → (tokens[], amounts[])`
+
 - 플레이어 보상 정보 조회
 
 #### `getContractBalance(token) → uint256`
+
 - 컨트랙트의 토큰 잔액 조회
 
 ---
@@ -465,6 +477,7 @@ minExitValue가 너무 높으면:
 ## 📞 지원
 
 질문이나 이슈가 있으시면:
+
 1. GitHub Issues 생성
 2. 보안 감사 전문가 상담
 3. 테스트넷에서 충분히 테스트 후 배포
