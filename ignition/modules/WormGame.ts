@@ -14,13 +14,13 @@ const WormGameModule = buildModule("WormGameModule", (m) => {
     process.env.RELAYER_ADDRESS || "0x0000000000000000000000000000000000000000"
   );
 
-  const minExitValue = m.getParameter<bigint>(
-    "minExitValue",
-    parseEther("50") // 기본값: 50 USD
+  const targetMemePrice = m.getParameter<bigint>(
+    "targetMemePrice",
+    parseEther("0.001") // 기본값: 0.001 M (MemeX 가격 목표)
   );
 
   // WormGame 배포
-  const wormGame = m.contract("WormGame", [relayerAddress, minExitValue]);
+  const wormGame = m.contract("WormGame", [relayerAddress, targetMemePrice]);
 
   return {
     wormGame,

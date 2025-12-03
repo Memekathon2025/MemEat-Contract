@@ -18,8 +18,8 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
     // Relayer 주소 (서버)
     address public relayer;
 
-    // 기준 밈 코인 수량 (예: 1000 * 10^18)
-    uint256 public targetMemeAmount;
+    // 기준 밈 코인 가격 (예: 0.001 * 10^18 = 0.001 M)
+    uint256 public targetMemePrice;
 
     // 플레이어 데이터
     mapping(address => PlayerData) public players;
@@ -36,9 +36,9 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
 
     // ============ Constructor ============
 
-    constructor(address _relayer, uint256 _targetMemeAmount) Ownable(msg.sender) {
+    constructor(address _relayer, uint256 _targetMemePrice) Ownable(msg.sender) {
         relayer = _relayer;
-        targetMemeAmount = _targetMemeAmount;
+        targetMemePrice = _targetMemePrice;
     }
 
     // ============ 유저 함수 ============
@@ -190,10 +190,10 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
     }
 
     /**
-     * @notice 탈출 기준 변경 (밈 코인 수량)
+     * @notice 탈출 기준 변경 (밈 코인 가격)
      */
-    function setExitCriteria(uint256 amount) external override onlyOwner {
-        targetMemeAmount = amount;
+    function setExitCriteria(uint256 price) external override onlyOwner {
+        targetMemePrice = price;
     }
 
     // ============ View 함수 ============

@@ -30,7 +30,7 @@ describe("WormGame (State Machine)", function () {
     // WormGame 배포
     const wormGame = await viem.deployContract("WormGame", [
       relayer.account.address,
-      parseEther("1000"), // targetMemeAmount = 1000 Tokens
+      parseEther("0.001"), // targetMemePrice = 0.001 M
     ]);
 
     // 플레이어에게 토큰 발행
@@ -480,12 +480,12 @@ describe("WormGame (State Machine)", function () {
     it("Should allow owner to change exit criteria", async function () {
       const { wormGame } = await deployFixture();
 
-      const newTargetAmount = parseEther("2000");
-      await wormGame.write.setExitCriteria([newTargetAmount]);
+      const newTargetPrice = parseEther("0.002");
+      await wormGame.write.setExitCriteria([newTargetPrice]);
 
-      const targetAmount = await wormGame.read.targetMemeAmount();
-      
-      expect(targetAmount).to.equal(newTargetAmount);
+      const targetPrice = await wormGame.read.targetMemePrice();
+
+      expect(targetPrice).to.equal(newTargetPrice);
     });
   });
 });

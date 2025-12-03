@@ -1,34 +1,41 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+import { parseEther } from "viem";
 
 /**
- * 프로덕션용 배포 모듈 (Chainlink 오라클 사용)
+ * 프로덕션용 배포 모듈 (MemeX Bonding Curve 사용)
  *
  * 배포 방법:
  * npx hardhat ignition deploy ignition/modules/WormGameProduction.ts --network <network-name> --parameters parameters-production.json
  */
 const WormGameProductionModule = buildModule("WormGameProductionModule", (m) => {
-  const serverSignerAddress = m.getParameter<string>(
-    "serverSigner",
-    process.env.SERVER_SIGNER_ADDRESS || "0x0000000000000000000000000000000000000000"
+  const relayerAddress = m.getParameter<string>(
+    "relayer",
+    process.env.RELAYER_ADDRESS || "0x0000000000000000000000000000000000000000"
   );
 
-  // 1. ChainlinkPriceFetcher 배포 (실제 오라클)
-  const chainlinkPriceFetcher = m.contract("ChainlinkPriceFetcher");
+  const bondingCurveAddress = m.getParameter<string>(
+    "bondingCurve",
+    "0x6a594a2C401Cf32D29823Ec10D651819DDfd688D" // MemeX Bonding Curve 주소
+  );
 
-  // 2. UserOnChainPriceOracleAdapter 배포
-  const oracleAdapter = m.contract("UserOnChainPriceOracleAdapter", [
-    chainlinkPriceFetcher,
+  const targetMemePrice = m.getParameter<bigint>(
+    "targetMemePrice",
+    parseEther("0.001") // 기본값: 0.001 M
+  );
+
+  // 1. MemeXPriceFetcher 배포
+  const memeXPriceFetcher = m.contract("MemeXPriceFetcher", [
+    bondingCurveAddress,
   ]);
 
-  // 3. WormGame 배포
+  // 2. WormGame 배포
   const wormGame = m.contract("WormGame", [
-    oracleAdapter,
-    serverSignerAddress,
+    relayerAddress,
+    targetMemePrice,
   ]);
 
   return {
-    chainlinkPriceFetcher,
-    oracleAdapter,
+    memeXPriceFetcher,
     wormGame,
   };
 });
