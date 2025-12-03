@@ -30,6 +30,7 @@ describe("WormGame (State Machine)", function () {
     // WormGame 배포
     const wormGame = await viem.deployContract("WormGame", [
       relayer.account.address,
+      owner.account.address, // Treasury = Owner
     ]);
 
     // 플레이어에게 토큰 발행
@@ -155,6 +156,32 @@ describe("WormGame (State Machine)", function () {
           }
         )
       ).to.be.rejectedWith("InvalidAmount");
+    });
+
+    it("Should deduct 5% fee and send to treasury", async function () {
+      const { wormGame, player1, owner, publicClient } = await deployFixture();
+      const entryFee = parseEther("100");
+      const expectedFee = parseEther("5"); // 5%
+
+      // Treasury 초기 잔액 확인
+      const initialTreasuryBalance = await publicClient.getBalance({ address: owner.account.address });
+
+      await wormGame.write.enterGame(
+        [
+          "0x0000000000000000000000000000000000000000",
+          entryFee
+        ],
+        { 
+          account: player1.account,
+          value: entryFee
+        }
+      );
+
+      // Treasury 잔액 증가 확인 (가스비 제외하고 근사치 확인 필요하지만, 로컬 테스트라 정확히 확인 가능할 수도 있음)
+      // 하지만 owner가 트랜잭션을 보낸게 아니라 player1이 보냈으므로 owner 잔액은 정확히 fee만큼 늘어야 함
+      const finalTreasuryBalance = await publicClient.getBalance({ address: owner.account.address });
+      
+      expect(finalTreasuryBalance - initialTreasuryBalance).to.equal(expectedFee);
     });
   });
 

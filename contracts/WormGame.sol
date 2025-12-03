@@ -31,6 +31,12 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
     // Relayer 주소 (서버)
     address public relayer;
 
+    // 수수료 받을 지갑 (Treasury)
+    address public treasury;
+
+    // 입장료 수수료율 (단위: 1/10000, 500 = 5%)
+    uint256 public feeRate = 500;
+
     // 플레이어 데이터
     mapping(address => PlayerData) public players;
 
@@ -46,8 +52,9 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
 
     // ============ Constructor ============
 
-    constructor(address _relayer) Ownable(msg.sender) {
+    constructor(address _relayer, address _treasury) Ownable(msg.sender) {
         relayer = _relayer;
+        treasury = _treasury;
     }
 
     // ============ 유저 함수 ============
@@ -77,18 +84,28 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
             player = players[msg.sender];
         }
 
-        // 입장료 처리 로직
+        // 입장료 처리 로직 (수수료 차감)
+        uint256 fee = (amount * feeRate) / 10000;
+        uint256 netAmount = amount - fee;
+
         if (msg.value > 0) {
             // Case 1: Native M 코인으로 입장
             if (token != address(0)) revert InvalidEntry(); // Native 입장 시 token은 0이어야 함
             if (msg.value != amount) revert InvalidAmount(); // 금액 불일치
+
+            // 수수료 전송 (Treasury로)
+            (bool success, ) = treasury.call{value: fee}("");
+            require(success, "Fee transfer failed");
         } else {
             // Case 2: MRC-20 토큰으로 입장
             if (token == address(0)) revert InvalidEntry(); // 토큰 주소 필수
             if (amount == 0) revert InvalidAmount(); // 0원 입장 불가
             
-            // 토큰 전송 (User -> Contract)
-            IERC20(token).transferFrom(msg.sender, address(this), amount);
+            // 수수료 전송 (User -> Treasury)
+            IERC20(token).transferFrom(msg.sender, treasury, fee);
+
+            // 게임 팟 전송 (User -> Contract)
+            IERC20(token).transferFrom(msg.sender, address(this), netAmount);
         }
 
         // 게임 ID 증가
@@ -209,6 +226,22 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
         address oldRelayer = relayer;
         relayer = newRelayer;
         emit RelayerUpdated(oldRelayer, newRelayer);
+    }
+
+    /**
+     * @notice 수수료율 변경 (Max 10%)
+     */
+    function setFeeRate(uint256 _feeRate) external onlyOwner {
+        require(_feeRate <= 1000, "Fee rate too high");
+        feeRate = _feeRate;
+    }
+
+    /**
+     * @notice Treasury 주소 변경
+     */
+    function setTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "Invalid address");
+        treasury = _treasury;
     }
 
 
