@@ -5,8 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "hardhat test",
-    "deploy:insectarium": "hardhat ignition deploy ignition/modules/WormGame.ts --network insectarium --parameters parameters.json",
-    "interact": "hardhat run scripts/interact-contract.ts --network insectarium"
+    "price:pool": "npx tsx scripts/get-pool-price.ts"
   },
   "keywords": [],
   "author": "",

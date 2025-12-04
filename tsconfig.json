@@ -8,6 +8,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "moduleResolution": "node16",
-    "outDir": "dist"
-  }
+    "outDir": "dist",
+    "typeRoots": ["./node_modules/@types", "./types"]
+  },
+  "include": ["scripts/**/*", "test/**/*", "types/**/*"],
+  "files": ["./hardhat.config.ts"]
 }

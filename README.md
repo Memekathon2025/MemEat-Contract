@@ -1,30 +1,197 @@
-# WormGame - 상태 머신 기반 게임 컨트랙트
+# WormGame - 실시간 가격 기반 게임 컨트랙트
 
 ## 📋 프로젝트 개요
 
-WormGame은 **오프체인 게임 로직**과 **온체인 자산 정산**을 결합한 하이브리드 게임 컨트랙트입니다.
+WormGame은 **DEX Pool 실시간 가격**을 활용한 온체인 자산 정산 게임 컨트랙트입니다.
 
 ### 핵심 특징
 
-- ✅ **상태 머신(State Machine)** 기반 설계 (5개 상태)
-- ✅ **Relayer 패턴**으로 서버 권한 관리
-- ✅ **재진입 공격 방지** (CEI 패턴 + ReentrancyGuard)
-- ✅ **게임 세션 추적** (gameId)
+- ✅ **실시간 DEX Pool 가격 조회** (Mock 사용 안 함)
+- ✅ **상태 머신(State Machine)** 기반 설계
+- ✅ **Relayer 패턴**으로 게임 로직 검증
+- ✅ **재진입 공격 방지** (ReentrancyGuard)
 - ✅ **멀티 토큰 보상** 지원
+- ✅ **네이티브 M 또는 MRC-20 입장료** 지원
 
 ---
 
 ## 🎮 게임 흐름
 
 ```
-1. 유저가 입장료 지불 → Active 상태
-2. 오프체인에서 게임 플레이
-3. 게임 종료 시 Relayer(서버)가 결과 기록
-   ├─ 탈출 성공 → Exited 상태 (보상 기록)
+1. 유저가 입장료 지불 (M 또는 MRC-20) → Active 상태
+2. 오프체인에서 게임 플레이 (토큰 수집)
+3. 백엔드가 실시간 DEX Pool 가격으로 총 가치 계산
+   - 각 토큰의 현재 가격 조회
+   - 총 가치 = Σ(토큰 수량 × 실시간 가격)
+4. 탈출 조건 확인 (총 가치 >= 입장료)
+   ├─ 조건 충족 → Relayer가 Exited 상태로 변경
    └─ 사망 → Dead 상태 (보상 없음)
-4. Exited 유저만 정산(claimReward) 가능 → Claimed 상태
-5. Dead/Claimed 상태에서 재진입 가능 → 다시 Active
+5. Exited 유저가 claimReward() 호출 → Claimed 상태
 ```
+
+---
+
+## 🌐 배포 정보 (Formicarium Testnet)
+
+### 배포된 컨트랙트
+- **WormGame**: `0x10ea77b0ec7796a8b04a8db23551699a3ae5f086`
+- **MemeXPriceFetcher**: `0x15902eb74b2124b7c67fda4fed571ce04797fff4`
+
+### 네트워크 정보
+- **Chain ID**: 43521
+- **RPC URL**: https://rpc.formicarium.memecore.net
+- **Explorer**: https://testnet.memecorescan.io/
+
+### DEX Pool 주소 (가격 조회용)
+- **WM/USDT Pool**: `0xdc010147c6597260c00a39b00ab618c0b6b0d5f4`
+- **WM Token**: `0x653e645e3d81a72e71328bc01a04002945e3ef7a`
+- **USDT Token**: `0xd7cfc924e629c4142cb6fa4f5467a7b8953e3de9`
+
+---
+
+## 💰 실시간 가격 조회
+
+### 사용법
+
+```bash
+# WM/USDT 실시간 가격 조회
+npm run price:pool
+```
+
+### 출력 예시
+
+```
+============================================================
+💰 Formicarium Pool 실시간 가격 조회
+============================================================
+
+📍 컨트랙트 주소:
+   WM:   0x653e645e3d81a72e71328bc01a04002945e3ef7a
+   USDT: 0xd7cfc924e629c4142cb6fa4f5467a7b8953e3de9
+   Pool: 0xdc010147c6597260c00a39b00ab618c0b6b0d5f4
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 실시간 가격 정보
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 현재 가격:
+   1 WM = 0.030740 USDT
+   1 M  = 0.030740 USDT (WM과 동일)
+
+📈 Pool 유동성:
+   WM:   300,201.947 WM
+   USDT: 9,228.318 USDT
+
+🕐 마지막 업데이트:
+   2025. 12. 4. 오후 3:56:39
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ 조회 완료!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## 🚀 프론트엔드/백엔드 통합 가이드
+
+### 1️⃣ 실시간 가격 조회 로직
+
+핵심 파일: `scripts/get-pool-price.ts`
+
+```typescript
+// 1. Pool에서 Reserves 조회
+const [reserve0, reserve1] = await publicClient.readContract({
+  address: poolAddress,
+  abi: parseAbi(["function getReserves() external view returns (uint112, uint112, uint32)"]),
+  functionName: "getReserves",
+});
+
+// 2. token0 확인
+const token0 = await publicClient.readContract({
+  address: poolAddress,
+  abi: parseAbi(["function token0() external view returns (address)"]),
+  functionName: "token0",
+});
+
+// 3. 가격 계산
+const isWMToken0 = token0.toLowerCase() === wmAddress.toLowerCase();
+const wmReserve = isWMToken0 ? reserve0 : reserve1;
+const usdtReserve = isWMToken0 ? reserve1 : reserve0;
+const priceInUSDT = Number(usdtReserve) / Number(wmReserve);
+```
+
+### 2️⃣ 백엔드 구현 예시
+
+```typescript
+// 각 게임 토큰의 Pool 주소 매핑
+const POOL_CONFIG = {
+  "WM": {
+    tokenAddress: "0x653e645e3d81a72e71328bc01a04002945e3ef7a",
+    poolAddress: "0xdc010147c6597260c00a39b00ab618c0b6b0d5f4",
+  },
+  // 게임에서 사용되는 다른 토큰 추가
+  // "sdf": { tokenAddress: "0x...", poolAddress: "0x..." },
+};
+
+// API: GET /api/token/:symbol/price
+async function getTokenPrice(symbol: string) {
+  const config = POOL_CONFIG[symbol];
+  // get-pool-price.ts 로직 사용
+  return { priceInUSDT: 0.030740 };
+}
+
+// 플레이어 총 가치 계산
+async function calculatePlayerValue(playerAddress: string) {
+  const tokens = await db.getPlayerTokens(playerAddress); // [{ symbol: "sdf", amount: 10 }]
+
+  let totalValue = 0;
+  for (const token of tokens) {
+    const price = await getTokenPrice(token.symbol);
+    totalValue += token.amount * price.priceInUSDT;
+  }
+
+  return totalValue;
+}
+
+// 탈출 조건 체크
+async function checkExitCondition(playerAddress: string) {
+  const player = await wormGameContract.read.players([playerAddress]);
+  const totalValue = await calculatePlayerValue(playerAddress);
+
+  return totalValue >= player.entryAmount;
+}
+```
+
+### 3️⃣ 프론트엔드 구현 예시
+
+```typescript
+// 1초마다 실시간 가격 업데이트
+setInterval(async () => {
+  const response = await fetch(`/api/player/${playerAddress}/status`);
+  const data = await response.json();
+
+  // UI 업데이트
+  document.getElementById('total-value').innerText =
+    `${data.totalValue.toFixed(2)} M / ${data.entryAmount} M`;
+
+  // Exit 버튼 활성화/비활성화
+  const exitButton = document.getElementById('exit-button');
+  if (data.canExit) {
+    exitButton.disabled = false;
+    exitButton.classList.add('active');
+    showNotification('🎉 탈출 조건 달성!');
+  } else {
+    exitButton.disabled = true;
+    exitButton.classList.remove('active');
+  }
+}, 1000);
+```
+
+### 4️⃣ 게임 토큰 추가 방법
+
+1. Formicarium DEX에서 새 토큰의 Pool 주소 찾기
+2. `scripts/get-pool-price.ts`를 수정하여 해당 Pool 테스트
+3. 백엔드 `POOL_CONFIG`에 추가
 
 ---
 
@@ -33,465 +200,95 @@ WormGame은 **오프체인 게임 로직**과 **온체인 자산 정산**을 결
 ```
 worm-contract/
 ├── contracts/
-│   ├── WormGame.sol                          # 메인 게임 컨트랙트
-│   ├── UserOnChainPriceOracleAdapter.sol     # 가격 오라클 어댑터
-│   ├── adapters/                             # 오라클 어댑터들
-
-│   │   └── (기타 오라클 구현체)
-│   ├── interfaces/
-│   │   └── IPriceFetcher.sol                # 오라클 인터페이스
-│   └── mocks/
-│       ├── MockERC20.sol                     # 테스트용 토큰
-│       └── MockPriceFetcher.sol              # 테스트용 오라클
+│   ├── WormGame.sol                    # 메인 게임 컨트랙트
+│   ├── MemeXPriceFetcher.sol           # 가격 조회 어댑터 (사용 안 함)
+│   └── interfaces/
+│       └── IWormGame.sol               # 인터페이스
 │
-├── test/
-│   └── WormGame.test.ts                      # 통합 테스트 (13개)
+├── scripts/
+│   ├── get-pool-price.ts               # ⭐ 실시간 가격 조회 스크립트
+│   └── verify-deployment.ts            # 배포 검증
 │
-├── ignition/modules/
-│   ├── WormGame.ts                           # 테스트넷 배포 (Mock 오라클)
-│   └── WormGameProduction.ts                 # 프로덕션 배포 (Chainlink)
-│
-├── 문서/
-│   ├── README.md                             # 이 파일 (프로젝트 가이드)
-│   ├── WORMGAME_SUMMARY.md                   # 전체 요약 및 요구사항
-│   ├── STATE_MACHINE.md                      # 상태 머신 다이어그램
-│   └── SECURITY_AUDIT.md                     # 보안 검증 문서
-│
-└── 설정 파일/
-    ├── parameters.json                       # 배포 파라미터
-    ├── hardhat.config.ts                     # Hardhat 설정
-    ├── package.json                          # 의존성 관리
-    └── .env                                  # 환경 변수 (git ignore)
+├── hardhat.config.ts                   # Hardhat 설정 (Formicarium)
+├── package.json                        # 의존성 관리
+└── README.md                           # 이 파일
 ```
 
 ---
 
-## 🚀 빠른 시작
+## 🎲 게임 메커니즘 (가격 변동)
 
-### 1. 의존성 설치
-
-```bash
-npm install
-```
-
-### 2. 환경 변수 설정
-
-`.env` 파일 생성:
-
-```bash
-# 배포 지갑 Private Key
-INSECTARIUM_PRIVATE_KEY=0x...
-
-# Relayer 주소 (게임 서버 지갑)
-RELAYER_ADDRESS=0x...
-```
-
-### 3. 배포 파라미터 설정
-
-[parameters.json](parameters.json) 파일 수정:
-
-```json
-{
-  "WormGameModule": {
-    "relayer": "0x...", // Relayer 주소
-    "minExitValue": "50000000000000000000" // 최소 탈출 가치 (50 USD)
-  }
-}
-```
-
-### 4. 컴파일
-
-```bash
-npx hardhat compile
-```
-
-### 5. 테스트 실행
-
-```bash
-npm test
-```
-
-**예상 결과:**
+### 핵심: Exit 버튼의 동적 활성화/비활성화
 
 ```
-WormGame (State Machine)
-  🎮 Entry Flow (입장)
-    ✔ Should allow player to enter game
-    ✔ Should prevent entering with 0 amount
-    ✔ Should prevent entering while already active
-  🎯 Exit Flow (탈출)
-    ✔ Should allow Relayer to mark player as Exited
-    ✔ Should prevent non-Relayer from updating state
-  💰 Claim Flow (정산)
-    ✔ Should allow Exited player to claim rewards
-    ✔ Should prevent Active player from claiming
-    ✔ Should prevent Dead player from claiming
-    ✔ Should prevent double claiming
-  ☠️ Death Flow (사망)
-    ✔ Should handle player death correctly
-    ✔ Should allow re-entry after death
-  🔧 Admin Functions (관리자)
-    ✔ Should allow owner to change Relayer
-    ✔ Should allow owner to change minExitValue
+[00:30] 게임 시작
+획득: sdf 7개
+가격: 0.12 M/개
+총 가치: 0.84 M / 1.0 M (84%)
+UI: [🚫 탈출 불가]
 
-  13 passing
+[01:15] sdf 가격 상승! ⬆️
+획득: sdf 7개 (그대로)
+가격: 0.15 M/개
+총 가치: 1.05 M / 1.0 M (105%) ✅
+UI: [🚪 탈출하기] ← 버튼 활성화!
+
+[02:00] sdf 가격 폭락! ⬇️
+획득: sdf 10개
+가격: 0.08 M/개
+총 가치: 0.80 M / 1.0 M (80%) ❌
+UI: [🚫 탈출 불가] ← 버튼 비활성화
 ```
 
-### 6. 배포
-
-#### 테스트넷 (Insectarium)
-
-```bash
-npx hardhat ignition deploy ignition/modules/WormGame.ts \
-  --network insectarium \
-  --parameters parameters.json
-```
-
-#### 프로덕션
-
-```bash
-npx hardhat ignition deploy ignition/modules/WormGameProduction.ts \
-  --network <network-name> \
-  --parameters parameters.json
-```
+**게임의 재미 요소:**
+- 실시간 가격 변동으로 긴장감 조성
+- 탈출 타이밍 선택 (안전 vs 욕심)
+- 여러 토큰 수집 전략 (포트폴리오)
 
 ---
 
-## 📖 코드 흐름 상세 설명
+## 🛠️ 주요 함수
 
-### Phase 1: 컴파일 및 테스트
-
-```
-1. npx hardhat compile
-   └─ Solidity 컨트랙트를 bytecode로 컴파일
-   └─ artifacts/ 폴더에 ABI와 bytecode 생성
-
-2. npm test
-   └─ test/WormGame.test.ts 실행
-   └─ 로컬 Hardhat 네트워크에 임시 배포
-   └─ 13개 테스트 시나리오 검증
-```
-
-### Phase 2: 배포 (Deployment)
-
-```
-npx hardhat ignition deploy ignition/modules/WormGame.ts
-   ↓
-[Step 1] ignition/modules/WormGame.ts 실행
-   ├─ parameters.json에서 설정값 읽기
-   │  ├─ relayer: Relayer 주소
-   │  └─ minExitValue: 최소 탈출 가치
-   │
-   ├─ [배포 1] MockERC20 (테스트용 토큰)
-   ├─ [배포 2] MockPriceFetcher (테스트용 오라클)
-   ├─ [배포 3] UserOnChainPriceOracleAdapter
-   │              └─ 생성자에 MockPriceFetcher 주소 전달
-   └─ [배포 4] WormGame
-                 ├─ 생성자 파라미터:
-                 │  ├─ relayer: Relayer 주소
-                 │  └─ minExitValue: 50 USD
-                 └─ 상속: Ownable, ReentrancyGuard
-
-[Step 2] 배포 완료
-   └─ ignition/deployments/chain-<chainId>/deployed_addresses.json 생성
-   └─ 배포된 주소 저장
-```
-
-### Phase 3: 게임 실행 (Runtime)
-
-#### 3-1. 유저 입장 (enterGame)
-
-```solidity
-// 클라이언트 → WormGame 컨트랙트
-enterGame(tokenAddress, amount)
-   ↓
-[검증]
-├─ amount > 0인지 확인
-├─ 이미 Active 상태가 아닌지 확인
-└─ 이전 게임이 종료되었으면 데이터 초기화
-
-[토큰 전송]
-└─ IERC20(token).transferFrom(user, contract, amount)
-   └─ 유저 지갑 → WormGame 컨트랙트
-
-[상태 변경]
-├─ gameIdCounter++
-├─ status = Active
-├─ gameId = gameIdCounter
-└─ emit GameEntered(...)
-
-[결과]
-└─ 유저는 이제 게임 플레이 가능 (오프체인)
-```
-
-#### 3-2. 게임 플레이 (오프체인)
-
-```
-[클라이언트 ↔ 게임 서버]
-└─ WebSocket/HTTP로 게임 진행
-└─ 서버는 게임 로직 처리
-   ├─ 벌레 움직임
-   ├─ 아이템 수집
-   ├─ 자산 가치 계산
-   └─ 탈출/사망 판정
-```
-
-#### 3-3. 게임 종료 (updateGameState)
-
-```solidity
-// 게임 서버(Relayer) → WormGame 컨트랙트
-updateGameState(playerAddress, newStatus, rewardTokens, rewardAmounts)
-   ↓
-[권한 검증]
-└─ if (msg.sender != relayer) revert OnlyRelayer()
-   └─ 일반 유저는 호출 불가!
-
-[상태 검증]
-├─ player.status == Active인지 확인
-└─ newStatus가 Exited 또는 Dead인지 확인
-
-[상태 변경]
-├─ if (newStatus == Exited):
-│  ├─ status = Exited
-│  ├─ rewardTokens = [토큰 주소들]
-│  └─ rewardAmounts = [보상 수량들]
-└─ else if (newStatus == Dead):
-   ├─ status = Dead
-   └─ rewardTokens/Amounts = [] (빈 배열)
-
-[결과]
-├─ Exited: 유저는 claimReward() 호출 가능
-└─ Dead: 정산 불가, 재진입만 가능
-```
-
-#### 3-4. 보상 정산 (claimReward)
-
-```solidity
-// 유저 → WormGame 컨트랙트
-claimReward()
-   ↓
-[검증] Checks
-├─ status == Exited인지 확인
-│  ├─ Active → ❌ NotExited
-│  ├─ Dead → ❌ NotExited
-│  └─ Claimed → ❌ NotExited
-└─ rewardTokens.length > 0인지 확인
-
-[상태 변경] Effects (재진입 방지!)
-└─ status = Claimed
-   └─ 먼저 상태를 변경하여 중복 정산 차단
-
-[토큰 전송] Interactions
-└─ for (각 보상 토큰):
-   └─ IERC20(rewardTokens[i]).transfer(user, rewardAmounts[i])
-      └─ WormGame 컨트랙트 → 유저 지갑
-
-[결과]
-└─ 유저가 보상을 받고 게임 종료
-```
-
----
-
-## 🔒 보안 메커니즘
-
-### 1. Dead 상태 정산 차단
-
-```solidity
-if (player.status != PlayerStatus.Exited) {
-    revert NotExited();
-}
-```
-
-**원리**: Dead는 Exited가 아니므로 자동 차단
-
-### 2. Active 상태 정산 차단
-
-```
-유저는 updateGameState()를 호출할 수 없음 (onlyRelayer)
-     ↓
-Active → Exited 전환 불가능
-     ↓
-claimReward() 호출 시 NotExited 에러
-```
-
-### 3. 중복 정산 방지
-
-**Checks-Effects-Interactions 패턴:**
-
-```solidity
-// 1. Checks: 상태 확인
-if (status != Exited) revert;
-
-// 2. Effects: 먼저 상태 변경 (중요!)
-status = Claimed;
-
-// 3. Interactions: 그 후 토큰 전송
-transfer(...);
-```
-
-**재진입 공격 시나리오:**
-
-```
-악의적 토큰 컨트랙트:
-1. claimReward() 호출
-2. transfer() 시 악의적 receive() 훅 실행
-3. receive()에서 다시 claimReward() 호출 시도
-   ↓
-   이미 status == Claimed이므로 NotExited 에러!
-```
-
-**추가 방어선: ReentrancyGuard**
-
-```solidity
-function claimReward() external nonReentrant {
-    // nonReentrant modifier가 재진입 차단
-}
-```
-
----
-
-## 📊 상태 전이 다이어그램
-
-```
-    [None]
-      ↓ enterGame()
-   [Active] ← 게임 진행 (오프체인)
-      ↓
-      ├─ updateGameState(Exited) → [Exited] → claimReward() → [Claimed]
-      │                                                              ↓
-      └─ updateGameState(Dead) → [Dead] ←────────────────────────────┘
-                                    ↓                   재진입
-                                    └─ enterGame() → [Active]
-```
-
-**허용되는 전이:**
-
-- None → Active (enterGame)
-- Active → Exited (updateGameState, Relayer만)
-- Active → Dead (updateGameState, Relayer만)
-- Exited → Claimed (claimReward)
-- Dead → Active (enterGame, 재진입)
-- Claimed → Active (enterGame, 재진입)
-
-**차단되는 전이:**
-
-- Active → Active (AlreadyInGame)
-- Active → Claimed (updateGameState 없이 불가능)
-- Dead → Exited (사망 후 탈출 불가)
-- Dead → Claimed (NotExited)
-
----
-
-## 🛠️ 주요 함수 설명
-
-### 유저 호출 함수
+### 유저 함수
 
 #### `enterGame(token, amount)`
-
-- **목적**: 게임 입장 및 입장료 지불
-- **권한**: 누구나
-- **조건**: amount > 0, Active 상태 아님
-- **결과**: Active 상태로 변경
+- **입장료 지불**: Native M (msg.value) 또는 MRC-20 토큰
+- **수수료**: 5% (Treasury로 전송)
+- **상태**: Active
 
 #### `claimReward()`
+- **보상 정산**: Exited 상태에서만 가능
+- **토큰 전송**: 획득한 모든 토큰 인출
+- **상태**: Claimed
 
-- **목적**: 탈출 성공 시 보상 정산
-- **권한**: Exited 상태인 유저만
-- **조건**: status == Exited, 보상 배열 존재
-- **결과**: Claimed 상태로 변경 + 토큰 전송
-
-### Relayer 호출 함수
+### Relayer 함수
 
 #### `updateGameState(player, newStatus, rewardTokens, rewardAmounts)`
-
-- **목적**: 게임 결과 기록
+- **게임 종료**: Exited 또는 Dead 상태로 변경
 - **권한**: Relayer만
-- **조건**: player.status == Active, newStatus == Exited/Dead
-- **결과**: Exited 또는 Dead 상태로 변경
-
-### 관리자 함수
-
-#### `setRelayer(newRelayer)`
-
-- **목적**: Relayer 주소 변경
-- **권한**: Owner만
-
-#### `setMinExitValue(newValue)`
-
-- **목적**: 최소 탈출 가치 변경
-- **권한**: Owner만
+- **조건**: 백엔드가 실시간 가격으로 탈출 조건 검증 후 호출
 
 ### View 함수
 
-#### `getPlayerStatus(player) → PlayerStatus`
-
-- 플레이어 현재 상태 조회
-
-#### `getPlayerReward(player) → (tokens[], amounts[])`
-
-- 플레이어 보상 정보 조회
-
-#### `getContractBalance(token) → uint256`
-
-- 컨트랙트의 토큰 잔액 조회
+- `getPlayerStatus(player)`: 플레이어 상태 조회
+- `getPlayerReward(player)`: 보상 정보 조회
+- `getContractBalance(token)`: 컨트랙트 잔액 조회
 
 ---
 
-## 📚 추가 문서
+## 🔒 보안
 
-- **[INTEGRATION.md](INTEGRATION.md)**: 백엔드/프론트엔드 통합 가이드 (배포된 컨트랙트 사용법)
-- **[STATE_MACHINE.md](STATE_MACHINE.md)**: 상태 머신 상세 설명 및 Mermaid 다이어그램
-- **[SECURITY_AUDIT.md](SECURITY_AUDIT.md)**: 보안 검증 및 공격 벡터 분석
-
----
-
-## 🌐 배포 정보 (Insectarium Testnet)
-
-- **컨트랙트 주소**: `0x12B08668F86A35E9ff9B726FBC46820a7d89335A`
-- **Network**: Insectarium Testnet (Chain ID: 43522)
-- **RPC URL**: https://rpc.insectarium.memecore.net
-- **배포 일자**: 2025년
-- **테스트 스크립트**: `npx hardhat run scripts/verify-deployment.ts --network insectarium`
-
----
-
-## ⚠️ 주의사항
-
-### Relayer 키 관리
-
-```
-❗ Relayer 개인키는 절대 노출되어서는 안 됩니다!
-
-권장 사항:
-✅ 하드웨어 월렛 사용
-✅ AWS KMS 등 키 관리 서비스 사용
-✅ 멀티시그 Relayer (향후 업그레이드)
-```
-
-### minExitValue 설정
-
-```
-minExitValue가 너무 낮으면:
-❌ 소액으로 탈출 가능 → 게임성 저하
-
-minExitValue가 너무 높으면:
-❌ 탈출 불가능 → 유저 불만
-
-권장:
-✅ 입장료의 5~10배 수준
-✅ 시장 상황에 따라 조정 가능
-```
+- ✅ **재진입 공격 방지**: ReentrancyGuard + CEI 패턴
+- ✅ **권한 관리**: onlyRelayer, onlyOwner
+- ✅ **상태 검증**: 모든 상태 전이 검증
 
 ---
 
 ## 📞 지원
 
-질문이나 이슈가 있으시면:
-
-1. GitHub Issues 생성
-2. 보안 감사 전문가 상담
-3. 테스트넷에서 충분히 테스트 후 배포
+- **GitHub Issues**: 버그 리포트 및 기능 요청
+- **테스트넷**: Formicarium에서 충분히 테스트 후 사용
 
 ---
 
-**WormGame은 프로덕션 준비가 완료되었습니다!** 🎉
+**WormGame은 실시간 DEX 가격 기반 게임입니다!** 🐛💰
