@@ -61,19 +61,14 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
 
     /**
      * @notice 게임 입장 (입장료 지불)
-     * @param token 입장료로 낼 토큰 주소
-     * @param amount 입장료 수량
-     */
-    /**
-     * @notice 게임 입장 (입장료 지불)
      * @param token 입장료로 낼 토큰 주소 (Native M인 경우 address(0))
      * @param amount 입장료 수량 (Native M인 경우 msg.value와 일치해야 함)
      */
     function enterGame(address token, uint256 amount) external payable override nonReentrant {
         PlayerData storage player = players[msg.sender];
 
-        // 검증: 이미 게임 중이 아니어야 함
-        if (player.status == PlayerStatus.Active) {
+        // 검증: 게임 중이 아니거나 보상을 받기 전이 아니어야 함
+        if (player.status == PlayerStatus.Active || player.status == PlayerStatus.Exited) {
             revert AlreadyInGame();
         }
 
