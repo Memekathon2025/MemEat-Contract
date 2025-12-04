@@ -1,4 +1,5 @@
 import "@nomicfoundation/hardhat-toolbox-viem";
+import { configVariable, defineConfig } from "hardhat/config";
 import dotenv from "dotenv";
 
 // .env 파일 로드
@@ -37,7 +38,30 @@ const config = {
       chainType: "l1",
       url: "https://rpc.insectarium.memecore.net",
       chainId: 43522,
-      accounts: ["0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"], // Dummy key (Hardhat default #0)
+      accounts: [
+        process.env.INSECTARIUM_PRIVATE_KEY ||
+          configVariable("INSECTARIUM_PRIVATE_KEY"),
+      ],
+    },
+    formicarium: {
+      type: "http",
+      chainType: "l1",
+      url: "https://rpc.formicarium.memecore.net	",
+      chainId: 43521,
+      accounts: [
+        process.env.INSECTARIUM_PRIVATE_KEY ||
+          configVariable("INSECTARIUM_PRIVATE_KEY"),
+      ],
+    },
+    memecore: {
+      type: "http",
+      chainType: "l1",
+      url: "https://rpc.memecore.net",
+      chainId: 4352,
+      accounts: [
+        process.env.INSECTARIUM_PRIVATE_KEY ||
+          configVariable("INSECTARIUM_PRIVATE_KEY"),
+      ],
     },
   },
 } as any;
