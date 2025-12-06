@@ -198,19 +198,23 @@ setInterval(async () => {
 ## 📂 프로젝트 구조
 
 ```
-worm-contract/
+MemEat-Contract/
 ├── contracts/
 │   ├── WormGame.sol                    # 메인 게임 컨트랙트
-│   ├── MemeXPriceFetcher.sol           # 가격 조회 어댑터 (사용 안 함)
-│   └── interfaces/
-│       └── IWormGame.sol               # 인터페이스
+│   ├── interfaces/
+│   │   └── IWormGame.sol               # 인터페이스
+│   ├── mocks/                          # 테스트용 Mock 컨트랙트
+│   └── adapters/                       # 외부 프로토콜 어댑터
 │
 ├── scripts/
 │   ├── get-pool-price.ts               # ⭐ 실시간 가격 조회 스크립트
 │   └── verify-deployment.ts            # 배포 검증
 │
+├── test/                               # 테스트 파일
+├── ignition/                           # Hardhat Ignition 배포 설정
 ├── hardhat.config.ts                   # Hardhat 설정 (Formicarium)
 ├── package.json                        # 의존성 관리
+├── tsconfig.json                       # TypeScript 설정
 └── README.md                           # 이 파일
 ```
 
@@ -273,6 +277,86 @@ UI: [🚫 탈출 불가] ← 버튼 비활성화
 - `getPlayerStatus(player)`: 플레이어 상태 조회
 - `getPlayerReward(player)`: 보상 정보 조회
 - `getContractBalance(token)`: 컨트랙트 잔액 조회
+
+---
+
+## 🚀 실행 방법
+
+### 사전 요구사항
+
+- Node.js 18.x 이상
+- npm 또는 yarn
+
+### 설치
+
+```bash
+cd MemEat-Contract
+npm install
+```
+
+### 환경 변수 설정
+
+`.env` 또는 `.env.local` 파일을 생성하고 다음 내용을 설정합니다:
+
+```env
+# 배포 계정 Private Key
+INSECTARIUM_PRIVATE_KEY=your_private_key_here
+```
+
+### 컴파일
+
+```bash
+npx hardhat compile
+```
+
+### 테스트
+
+```bash
+npm test
+# 또는
+npx hardhat test
+```
+
+### 배포
+
+#### Hardhat 네트워크 설정
+
+[hardhat.config.ts](hardhat.config.ts)에 정의된 네트워크:
+
+- **insectarium**: Memecore Testnet (Chain ID: 43522)
+  - RPC: https://rpc.insectarium.memecore.net
+
+- **formicarium**: Memecore Testnet (Chain ID: 43521)
+  - RPC: https://rpc.formicarium.memecore.net
+
+- **memecore**: Memecore Mainnet (Chain ID: 4352)
+  - RPC: https://rpc.memecore.net
+
+#### 배포 명령어
+
+```bash
+# Formicarium 테스트넷에 배포
+npx hardhat ignition deploy ignition/modules/WormGame.ts --network formicarium
+
+# Insectarium 테스트넷에 배포
+npx hardhat ignition deploy ignition/modules/WormGame.ts --network insectarium
+
+# Memecore 메인넷에 배포
+npx hardhat ignition deploy ignition/modules/WormGame.ts --network memecore
+```
+
+### 배포 후 ABI 업데이트
+
+컨트랙트 배포 후 생성된 ABI를 프론트엔드와 백엔드에 복사합니다:
+
+```bash
+# ABI 위치: artifacts/contracts/WormGame.sol/WormGame.json
+# 백엔드로 복사
+cp artifacts/contracts/WormGame.sol/WormGame.json ../MemEat-BE/src/abis/
+
+# 프론트엔드로 복사
+cp artifacts/contracts/WormGame.sol/WormGame.json ../MemEat-FE/src/abis/
+```
 
 ---
 
