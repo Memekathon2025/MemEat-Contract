@@ -143,10 +143,17 @@ contract WormGame is Ownable, ReentrancyGuard, IWormGame {
         // 보상 전송
         for (uint256 i = 0; i < player.rewardTokens.length; i++) {
             if (player.rewardAmounts[i] > 0) {
-                IERC20(player.rewardTokens[i]).transfer(
-                    msg.sender,
-                    player.rewardAmounts[i]
-                );
+                if (player.rewardTokens[i] == address(0)) {
+                    // 네이티브 토큰 전송
+                    (bool success, ) = msg.sender.call{value: player.rewardAmounts[i]}("");
+                    require(success, "Native token transfer failed");
+                } else {
+                    // ERC20 토큰 전송
+                    IERC20(player.rewardTokens[i]).transfer(
+                        msg.sender,
+                        player.rewardAmounts[i]
+                    );
+                }
             }
         }
 
